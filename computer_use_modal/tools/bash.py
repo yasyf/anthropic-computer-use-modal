@@ -1,4 +1,3 @@
-import shlex
 from dataclasses import dataclass
 
 from anthropic.types.beta import BetaToolBash20241022Param
@@ -35,6 +34,6 @@ class BashTool(BaseTool[BetaToolBash20241022Param]):
             self.session = await self.manager.start_bash_session.remote.aio()
             result += ToolResult(system="bash tool has been started")
         result += await self.manager.execute_bash_command.remote.aio(
-            self.session, *shlex.split(command)
+            self.session, command
         )
         return result

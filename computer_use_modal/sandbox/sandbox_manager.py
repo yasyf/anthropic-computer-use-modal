@@ -114,8 +114,8 @@ class SandboxManager:
         return await BashSessionManager(sandbox=self.sandbox).start()
 
     @modal.method()
-    async def execute_bash_command(self, session: BashSession, *cmd: str) -> ToolResult:
-        return await BashSessionManager(sandbox=self.sandbox, session=session).run(*cmd)
+    async def execute_bash_command(self, session: BashSession, cmd: str) -> ToolResult:
+        return await BashSessionManager(sandbox=self.sandbox, session=session).run(cmd)
 
     @modal.method()
     async def end_bash_session(self, session: BashSession):
