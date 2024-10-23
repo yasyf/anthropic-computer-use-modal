@@ -19,7 +19,7 @@ from computer_use_modal.tools.computer.computer import ComputerTool
 from computer_use_modal.tools.edit.edit import EditTool
 
 
-@app.cls(image=image, allow_concurrent_inputs=10, secrets=[secrets])
+@app.cls(image=image, allow_concurrent_inputs=10, secrets=[secrets], timeout=60 * 60)
 class ComputerUseServer:
     @modal.enter()
     def init(self):
@@ -58,22 +58,19 @@ class ComputerUseServer:
             yield await messages.add_assistant_content(
                 cast(list[BetaContentBlockParam], response.content)
             )
-            results = [
-                (
-                    await tool_runner.run(
-                        name=content_block.name,
-                        tool_input=cast(dict, content_block.input),
-                        tool_use_id=content_block.id,
-                    )
-                ).to_api()
-                for content_block in cast(list[BetaContentBlock], response.content)
-                if content_block.type == "tool_use"
-            ]
-            if not results:
+            for content_block in cast(list[BetaContentBlock], response.content):
+                if content_block.type != "tool_use":
+                    continue
+                yield await tool_runner.run(
+                    name=content_block.name,
+                    tool_input=cast(dict, content_block.input),
+                    tool_use_id=content_block.id,
+                )
+            if not tool_runner.results:
                 return
-            for result in tool_runner.results:
-                yield result
-            yield await messages.add_tool_result(results)
+            yield await messages.add_tool_result(
+                [r.to_api() for r in tool_runner.results]
+            )
 
     @modal.method()
     async def debug(self, request_id: str):

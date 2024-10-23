@@ -68,7 +68,9 @@ class ComputerTool(BaseTool[BetaToolComputerUse20241022Param], ComputerToolMixin
         x, y = self.scale_coordinates(
             ScalingSource.API, request.coordinate[0], request.coordinate[1]
         )
-        return await self.execute(*self._command("mousemove", "--sync", x, y))
+        return await self.execute(
+            *self._command("mousemove", "--sync", x, y), take_screenshot=False
+        )
 
     @dispatch.register(LeftClickDragRequest)
     async def left_click_drag(self, request: LeftClickDragRequest):

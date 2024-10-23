@@ -35,9 +35,7 @@ class Sender(StrEnum):
 
 
 def setup_state():
-    st.session_state.messages = []
-    st.session_state.responses = {}
-    st.session_state.tools = {}
+    st.session_state.last_role = Sender.USER
     st.session_state.request_id = uuid4().hex
 
 
@@ -47,73 +45,40 @@ async def main():
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
     st.title("Modal Computer Use Demo")
 
-    chat, http_logs = st.tabs(["Chat", "HTTP Exchange Logs"])
     new_message = st.chat_input(
         "Type a message to send to Claude to control the computer..."
     )
 
-    with chat:
-        for message in st.session_state.messages:
-            if isinstance(message["content"], str):
-                _render_message(message["role"], message["content"])
-            elif isinstance(message["content"], list):
-                for block in message["content"]:
-                    if isinstance(block, dict) and block["type"] == "tool_result":
+    if new_message:
+        st.session_state.last_role = Sender.USER
+        _render_message(Sender.USER, new_message)
+
+    if st.session_state.last_role is not Sender.USER:
+        return
+
+    with st.spinner("Running Agent..."):
+        res = Cls.lookup(
+            app.name, ComputerUseServer.__name__
+        ).messages_create.remote_gen.aio(
+            request_id=st.session_state.request_id,
+            user_messages=[{"role": "user", "content": new_message}],
+        )
+        async for msg in res:
+            if msg.__class__.__name__ == "ToolResult":
+                _render_message(Sender.TOOL, msg)
+                st.session_state.last_role = Sender.TOOL
+            else:
+                st.session_state.last_role = msg["role"]
+                if isinstance(msg["content"], str):
+                    _render_message(msg["role"], msg["content"])
+                elif isinstance(msg["content"], list):
+                    for block in msg["content"]:
+                        if isinstance(block, dict) and block["type"] == "tool_result":
+                            continue
                         _render_message(
-                            Sender.TOOL, st.session_state.tools[block["tool_use_id"]]
-                        )
-                    else:
-                        _render_message(
-                            message["role"],
+                            msg["role"],
                             cast(BetaTextBlock | BetaToolUseBlock, block),
                         )
-
-        if new_message:
-            st.session_state.messages.append(
-                {
-                    "role": Sender.USER,
-                    "content": [TextBlock(type="text", text=new_message)],
-                }
-            )
-            _render_message(Sender.USER, new_message)
-
-        try:
-            most_recent_message = st.session_state["messages"][-1]
-        except IndexError:
-            return
-
-        if most_recent_message["role"] is not Sender.USER:
-            return
-
-        with st.spinner("Running Agent..."):
-            res = Cls.lookup(
-                app.name, ComputerUseServer.__name__
-            ).messages_create.remote_gen.aio(
-                request_id=st.session_state.request_id,
-                user_messages=[{"role": "user", "content": new_message}],
-            )
-            async for msg in res:
-                if msg.__class__.__name__ == "ToolResult":
-                    _render_message(Sender.TOOL, msg)
-                    st.session_state.tools[msg.tool_use_id] = msg
-                else:
-                    if isinstance(msg["content"], str):
-                        _render_message(msg["role"], msg["content"])
-                    elif isinstance(msg["content"], list):
-                        for block in msg["content"]:
-                            if (
-                                isinstance(block, dict)
-                                and block["type"] == "tool_result"
-                            ):
-                                _render_message(
-                                    Sender.TOOL,
-                                    st.session_state.tools[block["tool_use_id"]],
-                                )
-                            else:
-                                _render_message(
-                                    msg["role"],
-                                    cast(BetaTextBlock | BetaToolUseBlock, block),
-                                )
 
 
 def _render_message(
