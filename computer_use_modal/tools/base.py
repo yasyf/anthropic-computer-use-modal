@@ -27,7 +27,9 @@ class ToolResult(_ToolResult):
 
     def to_api(self) -> BetaToolResultBlockParam:
         assert self.tool_use_id is not None, "tool_use_id is required"
-        assert self.error or self.output or self.base64_image, "content is required"
+        assert (
+            self.error or self.output or self.base64_image or self.system
+        ), "content is required"
 
         content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
         system = f"<system>{self.system}</system>\n" if self.system else ""

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import backoff
 import modal
-from modal import NetworkFileSystem, Sandbox, SchedulerPlacement
+from modal import NetworkFileSystem, Sandbox
 from modal.container_process import ContainerProcess
 
 from computer_use_modal.app import MOUNT_PATH, app, image, sandbox_image
@@ -23,12 +23,13 @@ logger = logging.getLogger(__name__)
 )
 class SandboxManager:
     request_id: str = modal.parameter()
-    auto_cleanup: int = modal.parameter(default=0)
+    auto_cleanup: int = modal.parameter(default=1)
 
     @modal.enter()
     async def create_sandbox(self):
         logging.basicConfig(level=logging.INFO)
 
+        self.bash_sessions: dict[BashSession, BashSessionManager] = {}
         self.nfs = await NetworkFileSystem.lookup.aio(
             f"anthropic-computer-use-{self.request_id}", create_if_missing=True
         )
@@ -44,7 +45,6 @@ class SandboxManager:
                 network_file_systems={MOUNT_PATH: self.nfs},
                 timeout=60 * 60,
                 encrypted_ports=[8501, 6080],
-                _experimental_scheduler_placement=SchedulerPlacement(region="us"),
             )
             logger.info("Waiting for sandbox to start...")
             await asyncio.sleep(15)
@@ -54,6 +54,8 @@ class SandboxManager:
     async def cleanup_sandbox(self):
         if not self.auto_cleanup:
             return
+        for manager in self.bash_sessions.values():
+            await manager.kill()
         await self.sandbox.terminate.aio()
 
     @modal.method()
@@ -111,12 +113,24 @@ class SandboxManager:
 
     @modal.method()
     async def start_bash_session(self) -> BashSession:
-        return await BashSessionManager(sandbox=self.sandbox).start()
+        manager = BashSessionManager(sandbox=self.sandbox)
+        session = await manager.start()
+        self.bash_sessions[session] = manager
+        return session
 
     @modal.method()
     async def execute_bash_command(self, session: BashSession, cmd: str) -> ToolResult:
-        return await BashSessionManager(sandbox=self.sandbox, session=session).run(cmd)
+        try:
+            manager = self.bash_sessions[session]
+        except KeyError:
+            manager = BashSessionManager(sandbox=self.sandbox, session=session)
+            self.bash_sessions[session] = manager
+        return await manager.run(cmd)
 
     @modal.method()
     async def end_bash_session(self, session: BashSession):
-        await BashSessionManager(sandbox=self.sandbox, session=session).kill()
+        try:
+            manager = self.bash_sessions.pop(session)
+        except KeyError:
+            manager = BashSessionManager(sandbox=self.sandbox, session=session)
+        await manager.kill()

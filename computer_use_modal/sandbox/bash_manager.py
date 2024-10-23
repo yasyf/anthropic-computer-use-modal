@@ -1,18 +1,18 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field, replace
-from functools import cached_property
 from io import StringIO
-from typing import Any, AsyncIterator
+from typing import Any, cast
 
 from modal import Sandbox
 from modal.container_process import ContainerProcess
 
+from computer_use_modal.sandbox.io import IOChunk, IOTask
 from computer_use_modal.tools.base import ToolResult
 
 logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, kw_only=True, unsafe_hash=True)
 class BashSession:
     session_id: str
     pid: int | None = None
@@ -23,11 +23,10 @@ class BashSessionManager:
     sandbox: Sandbox
     session: BashSession | None = None
     proc: ContainerProcess | None = None
+    timeout: float = 30
 
-    @cached_property
-    def outputs(self) -> tuple[AsyncIterator[str], AsyncIterator[str]]:
-        assert self.proc is not None
-        return aiter(self.proc.stdout), aiter(self.proc.stderr)
+    io_queue: asyncio.Queue[IOChunk] = field(default_factory=asyncio.Queue)
+    _io_task: asyncio.Task | None = None
 
     async def start(self) -> BashSession:
         if self.session:
@@ -35,25 +34,36 @@ class BashSessionManager:
                 self.session.session_id, _gross_modal_hack(self.sandbox)._client
             )
         else:
-            self.proc = await self.sandbox.exec.aio("bash")
+            self.proc = cast(ContainerProcess, await self.sandbox.exec.aio("bash"))
             process_id = _gross_modal_hack(self.proc)._process_id
             assert process_id is not None
             self.session = BashSession(session_id=process_id)
+
+        self._io_task = asyncio.create_task(
+            IOTask(proc=self.proc, timeout=self.timeout, queue=self.io_queue).run()
+        )
+
+        if not self.session.pid:
             self.session = replace(
                 self.session, pid=int((await self.run("echo $BASHPID")).output.strip())
             )
+
         return self.session
 
     async def kill(self):
         assert self.session is not None
+        if self._io_task:
+            self._io_task.cancel()
+        logger.info(f"killing bash with pid {self.session.pid}")
         proc = await self.sandbox.exec.aio("kill", str(self.session.pid))
         await proc.wait.aio()
         self.session = None
+        self.proc = None
 
     async def run(self, command: str) -> ToolResult:
-        assert self.session is not None
         if not self.proc:
             await self.start()
+        assert self.session is not None
         cmd = BashCommandManager(session=self)
         await cmd.start(command)
         res = await cmd.wait()
@@ -70,8 +80,6 @@ class BashCommandManager:
 
     stdout: StringIO = field(default_factory=StringIO)
     stderr: StringIO = field(default_factory=StringIO)
-    timeout: float = 30
-
     exit_code: int | None = None
 
     @property
@@ -85,67 +93,47 @@ class BashCommandManager:
         self.proc.stdin.write(f"{command}; echo '{self.SENTINEL}'\n")
         await self.proc.stdin.drain.aio()
 
-    async def _wait(self):
-        assert self.proc is not None
-
-        stdout = asyncio.create_task(anext(self.session.outputs[0]))
-        stderr = asyncio.create_task(anext(self.session.outputs[1]))
-        wait = asyncio.create_task(self.proc.wait.aio())
-
+    async def _loop(self):
         while True:
-            done, _ = await asyncio.wait(
-                tasks := (stdout, stderr, wait),
-                return_when=asyncio.FIRST_COMPLETED,
-                timeout=self.timeout,
-            )
-            if not done:
-                logger.info(f"command timed out: {self.timeout} seconds")
-                self.stderr.write(
-                    f"timed out: bash has not returned in {self.timeout} seconds and must be restarted"
-                )
-                self.exit_code = -999
+            chunk = await self.session.io_queue.get()
+            if chunk.stream == "stdout":
+                logger.info(f"stdout: {chunk.data}")
+                self.stdout.write(chunk.data)
+            elif chunk.stream == "stderr":
+                logger.info(f"stderr: {chunk.data}")
+                self.stderr.write(chunk.data)
+
+            if chunk.exit_code is not None:
+                logger.info(f"command exited with code {chunk.exit_code}")
+                self.exit_code = chunk.exit_code
                 break
-            if stderr.done() and not stderr.exception():
-                self.stderr.write(line := stderr.result())
-                logger.info(f"stderr: {line}")
-                stderr = asyncio.create_task(anext(self.session.outputs[1]))
-            if stdout.done() and not stdout.exception():
-                self.stdout.write(line := stdout.result())
-                logger.info(f"stdout: {line}")
-                if self.SENTINEL in self.stdout.getvalue():
-                    break
-                stdout = asyncio.create_task(anext(self.session.outputs[0]))
-            if wait.done():
-                logger.info(f"command exited with code {wait.result()}")
-                self.exit_code = wait.result()
-                if not self.stdout.getvalue() and (
-                    output := await self.proc.stdout.read.aio()
-                ):
-                    logger.info(f"stdout: {output}")
-                    self.stdout.write(output)
-                if not self.stderr.getvalue() and (
-                    error := await self.proc.stderr.read.aio()
-                ):
-                    logger.info(f"stderr: {error}")
-                    self.stderr.write(error)
-                self.stderr.write(f"bash has exited with returncode {self.exit_code}")
+            elif self.SENTINEL in self.stdout.getvalue():
+                logger.info("command succeeded")
                 break
 
-        for t in tasks:
-            t.cancel()
+    async def loop(self):
+        try:
+            async with asyncio.timeout(self.session.timeout):
+                await self._loop()
+        except asyncio.TimeoutError:
+            self.stderr.write(
+                f"timed out: bash has not returned in {self.session.timeout} seconds and must be restarted"
+            )
+            self.exit_code = -999
 
     async def wait(self):
-        await self._wait()
-        output = self.stdout.getvalue()
-        try:
+        await self.loop()
+        if self.SENTINEL in (output := self.stdout.getvalue()):
             output = output[: output.index(self.SENTINEL)]
-        except ValueError:
-            pass
-        return ToolResult(
+        res = ToolResult(
             output=output,
             error=self.stderr.getvalue(),
-            system="tool must be restarted" if self.exit_code else None,
+            system="tool must be restarted"
+            if self.exit_code
+            else "bash command succeeded",
         )
+        logger.info(f"command result: {res}")
+        return res
 
 
 def _gross_modal_hack(obj: Any):
