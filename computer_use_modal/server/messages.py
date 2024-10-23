@@ -79,10 +79,14 @@ class Messages:
             if isinstance(content, dict) and content.get("type") == "image"
         )
 
+        if total_images <= self.keep_n_images:
+            return
         if not (
             images_to_remove := (total_images - self.keep_n_images) % self.CHUNK_SIZE
         ):
             return
+
+        logger.info(f"Removing {images_to_remove} images")
 
         while images_to_remove > 0:
             for res in self.tool_results:

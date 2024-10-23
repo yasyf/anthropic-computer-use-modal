@@ -6,6 +6,7 @@ from rich import print
 
 from computer_use_modal import ComputerUseServer, SandboxManager
 from computer_use_modal.modal import app
+from computer_use_modal.tools.base import ToolResult
 
 
 @app.local_entrypoint()
@@ -21,10 +22,11 @@ async def demo(request_id: str = uuid4().hex):
         ],
     )
     async for msg in res:
-        print("[bold]Response:[/bold]", msg)
-        if msg.base64_image:
+        if isinstance(msg, ToolResult) and msg.base64_image:
             proc = await asyncio.create_subprocess_shell(
                 "viu -", stdin=asyncio.subprocess.PIPE
             )
             await proc.communicate(base64.b64decode(msg.base64_image))
             await proc.wait()
+        else:
+            print("[bold]Response:[/bold]", msg)

@@ -1,6 +1,4 @@
-from dataclasses import dataclass, fields, replace
-
-from pydantic import Field
+from dataclasses import dataclass, field, fields, replace
 
 
 class ToolError(Exception):
@@ -16,7 +14,7 @@ class ToolResult:
 
     output: str | None = None
     error: str | None = None
-    base64_image: str | None = Field(default=None, repr=False)
+    base64_image: str | None = field(default=None, repr=False)
     system: str | None = None
 
     def __bool__(self):

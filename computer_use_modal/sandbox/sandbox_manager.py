@@ -14,10 +14,16 @@ from computer_use_modal.tools.base import ToolResult
 
 logger = logging.getLogger(__name__)
 
-@app.cls(image=image, concurrency_limit=1, allow_concurrent_inputs=10, timeout=60 * 30)
+@app.cls(
+    image=image,
+    concurrency_limit=1,
+    allow_concurrent_inputs=10,
+    timeout=60 * 30,
+    container_idle_timeout=60 * 20,
+)
 class SandboxManager:
     request_id: str = modal.parameter()
-    auto_cleanup: int = modal.parameter(default=1)
+    auto_cleanup: int = modal.parameter(default=0)
 
     @modal.enter()
     async def create_sandbox(self):
@@ -41,7 +47,8 @@ class SandboxManager:
                 _experimental_scheduler_placement=SchedulerPlacement(region="us"),
             )
             logger.info("Waiting for sandbox to start...")
-            await asyncio.sleep(10)
+            await asyncio.sleep(30)
+            logger.info("Sandbox started")
 
     @modal.exit()
     async def cleanup_sandbox(self):

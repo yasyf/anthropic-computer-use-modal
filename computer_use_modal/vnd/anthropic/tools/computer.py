@@ -54,7 +54,6 @@ class ComputerToolMixin:
 
     width: int
     height: int
-    _scaling_enabled: bool = True
 
     @staticmethod
     def chunks(s: str, chunk_size: int) -> list[str]:
@@ -62,16 +61,17 @@ class ComputerToolMixin:
 
     def scale_coordinates(self, source: ScalingSource, x: int, y: int):
         """Scale coordinates to a target maximum resolution."""
-        if not self._scaling_enabled:
-            return x, y
+
         ratio = self.width / self.height
-        target_dimension = None
-        for dimension in MAX_SCALING_TARGETS.values():
-            # allow some error in the aspect ratio - not ratios are exactly 16:9
-            if abs(dimension["width"] / dimension["height"] - ratio) < 0.02:
-                if dimension["width"] < self.width:
-                    target_dimension = dimension
-                break
+        target_dimension = next(
+            (
+                dimension
+                for dimension in MAX_SCALING_TARGETS.values()
+                if abs(dimension["width"] / dimension["height"] - ratio) < 0.02
+                and dimension["width"] < self.width
+            ),
+            None,
+        )
         if target_dimension is None:
             return x, y
         # should be less than 1
