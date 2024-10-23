@@ -1,9 +1,13 @@
 [project]
-name = "anthropic-computer-use-modal"
+name = "computer-use-modal"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "annotated-types>=0.7.0",
+    "anthropic>=0.37.1",
     "modal>=0.64.211",
+    "pydantic>=2.9.2",
+    "uuid6>=2024.7.10",
 ]
