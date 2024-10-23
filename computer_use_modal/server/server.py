@@ -24,6 +24,7 @@ class ComputerUseServer:
     def init(self):
         self.client = Anthropic()
 
+    @modal.method()
     async def messages_create(
         self,
         request_id: str,
@@ -52,7 +53,7 @@ class ComputerUseServer:
                 betas=["computer-use-2024-10-22"],
             )
             await messages.add_assistant_content(
-                cast(list[BetaContentBlockParam], response.content)
+                ai_content := cast(list[BetaContentBlockParam], response.content)
             )
             results = [
                 (
@@ -65,5 +66,7 @@ class ComputerUseServer:
                 if content_block.type == "tool_use"
             ]
             if not results:
-                return
+                return "\n".join(
+                    [block["text"] for block in ai_content if block["type"] == "text"]
+                )
             await messages.add_tool_result(results)

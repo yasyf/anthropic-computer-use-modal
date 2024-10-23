@@ -1,8 +1,9 @@
+import asyncio
 from io import BytesIO
 from pathlib import Path
 
 import modal
-from modal import NetworkFileSystem, Sandbox
+from modal import NetworkFileSystem, Sandbox, SchedulerPlacement
 from modal.container_process import ContainerProcess
 
 from computer_use_modal.modal import MOUNT_PATH, app, image, sandbox_image
@@ -26,12 +27,15 @@ class SandboxManager:
             self.sandbox = sandbox
         else:
             self.sandbox = await Sandbox.create.aio(
-                "./entrypoint.sh",
                 image=sandbox_image,
+                cpu=4,
+                memory=4096,
                 network_file_systems={MOUNT_PATH: self.nfs},
                 timeout=60 * 60,
-                encrypted_ports=[8080],
+                encrypted_ports=[8501, 6080],
+                _experimental_scheduler_placement=SchedulerPlacement(region="us"),
             )
+            await asyncio.sleep(5)
 
     @modal.exit()
     async def cleanup_sandbox(self):
@@ -41,8 +45,12 @@ class SandboxManager:
         await self.nfs.delete.aio()
 
     @modal.method()
-    async def debug_url(self):
-        return (await self.sandbox.tunnels.aio())[8080].url
+    async def debug_urls(self):
+        tunnels = await self.sandbox.tunnels.aio()
+        return {
+            "vnc": tunnels[6080].url,
+            "webui": tunnels[8501].url,
+        }
 
     @modal.method()
     async def run_command(self, *command: str) -> ToolResult:
