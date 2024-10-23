@@ -6,7 +6,7 @@ from computer_use_modal.vnd.anthropic.tools.shared import ToolError as _ToolErro
 from computer_use_modal.vnd.anthropic.tools.shared import ToolResult as _ToolResult
 
 if TYPE_CHECKING:
-    from computer_use_modal.sandbox_manager import SandboxManager
+    from computer_use_modal.sandbox.sandbox_manager import SandboxManager
 
 P = TypeVar("P", bound=Mapping)
 

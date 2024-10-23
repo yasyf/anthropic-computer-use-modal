@@ -6,7 +6,8 @@ import modal
 from modal import NetworkFileSystem, Sandbox
 from modal.container_process import ContainerProcess
 
-from computer_use_modal.deploy import app, image, sandbox_image
+from computer_use_modal.deploy import MOUNT_PATH, app, image, sandbox_image
+from computer_use_modal.sandbox.bash_manager import BashSession, BashSessionManager
 
 if TYPE_CHECKING:
     from computer_use_modal.tools.base import ToolResult
@@ -30,7 +31,7 @@ class SandboxManager:
             self.sandbox = await Sandbox.create.aio(
                 "./entrypoint.sh",
                 image=sandbox_image,
-                network_file_systems={"/mnt/nfs": self.nfs},
+                network_file_systems={MOUNT_PATH: self.nfs},
                 timeout=60 * 20,
                 encrypted_ports=[8080],
             )
@@ -40,7 +41,7 @@ class SandboxManager:
         if not self.auto_cleanup:
             return
         await self.sandbox.terminate.aio()
-        await self.volume.delete.aio()
+        await self.nfs.delete.aio()
 
     @modal.method()
     async def debug_url(self):
@@ -55,15 +56,22 @@ class SandboxManager:
             error=await proc.stderr.read.aio(),
         )
 
+    async def read_file(self, path: Path) -> str:
+        buff = BytesIO()
+        async for chunk in self.nfs.read_file.aio(
+            path.relative_to(MOUNT_PATH).as_posix()
+        ):
+            buff.write(chunk)
+        buff.seek(0)
+        return buff.getvalue().decode()
+
     @modal.method()
     async def take_screenshot(
         self, display: int, size: tuple[int, int]
     ) -> "ToolResult":
-        from base64 import b64encode
-
         from uuid6 import uuid7
 
-        path = Path("/mnt/nfs") / f"{uuid7().hex}.png"
+        path = Path(MOUNT_PATH) / f"{uuid7().hex}.png"
         await self.run_command.local(
             f"DISPLAY=:{display}", "gnome-screenshot", "-f", path.as_posix(), "-p"
         )
@@ -74,10 +82,16 @@ class SandboxManager:
             f"{size[0]}x{size[1]}!",
             path.as_posix(),
         )
-        buff = BytesIO()
-        async for chunk in self.nfs.read_file.aio(
-            path.relative_to("/mnt/nfs").as_posix()
-        ):
-            buff.write(chunk)
-        buff.seek(0)
-        return ToolResult(base64_image=b64encode(buff.getvalue()).decode())
+        return ToolResult(base64_image=await self.read_file(path))
+
+    @modal.method()
+    async def start_bash_session(self) -> BashSession:
+        return await BashSessionManager(sandbox=self.sandbox).start()
+
+    @modal.method()
+    async def execute_bash_command(self, session: BashSession, *cmd: str) -> ToolResult:
+        return await BashSessionManager(sandbox=self.sandbox, session=session).run(*cmd)
+
+    @modal.method()
+    async def end_bash_session(self, session: BashSession):
+        await BashSessionManager(sandbox=self.sandbox, session=session).kill()

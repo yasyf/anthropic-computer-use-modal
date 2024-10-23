@@ -1,5 +1,7 @@
 from modal import App, Image
 
+MOUNT_PATH = "/mnt/nfs"
+
 app = App.lookup("anthropic-computer-use-modal", create_if_missing=True)
 
 image = (
@@ -14,4 +16,4 @@ sandbox_image = Image.from_registry(
 )
 
 
-from .sandbox_manager import SandboxManager  # noqa
+from .sandbox.sandbox_manager import SandboxManager  # noqa

@@ -57,6 +57,7 @@ class ComputerTool(BaseTool[BetaToolComputerUse20241022Param], ComputerToolMixin
             request = BaseComputerRequest.parse(data)
         except ValidationError as e:
             raise ToolError(f"Invalid tool parameters:\n{e.json()}") from e
+        return await self.dispatch(request)
 
     @singledispatchmethod
     async def dispatch(self, request: BaseComputerRequest) -> ToolResult:
