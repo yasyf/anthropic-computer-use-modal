@@ -45,6 +45,8 @@ modal deploy computer_use_modal
 python -m streamlit run computer_use_modal/streamlit.py
 ```
 
+![Streamlit Demo](demo.png)
+
 ## Installation
 
 You can install this library without cloning the repo by running:
