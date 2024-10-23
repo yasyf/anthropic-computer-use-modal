@@ -8,13 +8,13 @@ from computer_use_modal.vnd.anthropic.tools.edit import Command
 
 
 class BaseEditRequest(BaseModel):
-    action: Command
+    command: Command
     path: Path
 
     @classmethod
     def parse(cls, data: dict):
         adapter: TypeAdapter[TRequest] = TypeAdapter(
-            Annotated[TRequest, Field(discriminator="action")]
+            Annotated[TRequest, Field(discriminator="command")]
         )
         return adapter.validate_python(data)
 
@@ -31,17 +31,17 @@ class BaseEditRequest(BaseModel):
 
 
 class ViewRequest(BaseEditRequest):
-    action: Literal["view"] = "view"
+    command: Literal["view"] = "view"
     view_range: Annotated[tuple[int, int], Len(2, 2), Gt(0)] | None = None
 
 
 class CreateRequest(BaseEditRequest):
-    action: Literal["create"] = "create"
+    command: Literal["create"] = "create"
     file_text: str
 
 
 class StrReplaceRequest(BaseEditRequest):
-    action: Literal["str_replace"] = "str_replace"
+    command: Literal["str_replace"] = "str_replace"
     old_str: str
     new_str: str = ""
 
@@ -51,7 +51,7 @@ class StrReplaceRequest(BaseEditRequest):
 
 
 class InsertRequest(BaseEditRequest):
-    action: Literal["insert"] = "insert"
+    command: Literal["insert"] = "insert"
     insert_line: int
     new_str: str
 
@@ -61,7 +61,7 @@ class InsertRequest(BaseEditRequest):
 
 
 class UndoEditRequest(BaseEditRequest):
-    action: Literal["undo_edit"] = "undo_edit"
+    command: Literal["undo_edit"] = "undo_edit"
 
 
 TRequest = Union[

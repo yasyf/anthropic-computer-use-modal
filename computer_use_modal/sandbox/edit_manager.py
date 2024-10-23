@@ -55,11 +55,17 @@ class FileInfo:
         return Path(MOUNT_PATH) / self.path
 
     async def read(self) -> str:
-        return (await self.manager.sandbox.read_file(self.path)).decode().expandtabs()
+        return (
+            (await self.manager.sandbox.read_file.remote.aio(self.path))
+            .decode()
+            .expandtabs()
+        )
 
     async def write(self, content: str):
         self.manager.session.file_versions[self.path].append(await self.read())
-        await self.manager.sandbox.nfs.write_file.aio(self.path, content.expandtabs())
+        await self.manager.sandbox.write_file.remote.aio(
+            self.path, content.expandtabs().encode()
+        )
 
     def __str__(self) -> str:
         return self.path.as_posix()
@@ -75,22 +81,22 @@ class EditSessionManager:
     async def _validate_request(self, request: TRequest):
         info = FileInfo(
             path=request.path,
-            listing=await self.sandbox.nfs.listdir.aio(request.path),
+            listing=await self.sandbox.stat_file.remote.aio(request.path),
             manager=self,
         )
-        if request.action != "create" and not info.exists():
+        if request.command != "create" and not info.exists():
             raise ToolError(
                 f"The path {request.path} does not exist. Please provide a valid path."
             )
-        if request.action == "create" and info.exists():
+        if request.command == "create" and info.exists():
             raise ToolError(
                 f"File already exists at: {request.path}. Cannot overwrite files using command `create`."
             )
-        if request.action != "view" and info.is_dir():
+        if request.command != "view" and info.is_dir():
             raise ToolError(
                 f"The path {request.path} is a directory and only the `view` command can be used on directories"
             )
-        if request.action == "view" and request.view_range and info.is_dir():
+        if request.command == "view" and request.view_range and info.is_dir():
             raise ToolError(
                 "The `view_range` parameter is not allowed when `path` points to a directory."
             )
@@ -101,7 +107,7 @@ class EditSessionManager:
 
     @singledispatchmethod
     async def dispatch(self, request: TRequest) -> ToolResult:
-        raise ToolError(f"Action {request.action} not supported")
+        raise ToolError(f"Action {request.command} not supported")
 
     @dispatch.register
     async def view(self, request: ViewRequest):

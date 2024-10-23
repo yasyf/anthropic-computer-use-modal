@@ -90,9 +90,7 @@ async def main():
                 app.name, ComputerUseServer.__name__
             ).messages_create.remote_gen.aio(
                 request_id=st.session_state.request_id,
-                user_messages=[
-                    {"role": "user", "content": "What is the weather in San Francisco?"}
-                ],
+                user_messages=[{"role": "user", "content": new_message}],
             )
             async for msg in res:
                 if msg.__class__.__name__ == "ToolResult":
@@ -100,10 +98,22 @@ async def main():
                     st.session_state.tools[msg.tool_use_id] = msg
                 else:
                     if isinstance(msg["content"], str):
-                        _render_message(message["role"], message["content"])
-                    elif isinstance(message["content"], list):
-                        for block in message["content"]:
-                            _render_message(Sender.BOT, block)
+                        _render_message(msg["role"], msg["content"])
+                    elif isinstance(msg["content"], list):
+                        for block in msg["content"]:
+                            if (
+                                isinstance(block, dict)
+                                and block["type"] == "tool_result"
+                            ):
+                                _render_message(
+                                    Sender.TOOL,
+                                    st.session_state.tools[block["tool_use_id"]],
+                                )
+                            else:
+                                _render_message(
+                                    msg["role"],
+                                    cast(BetaTextBlock | BetaToolUseBlock, block),
+                                )
 
 
 def _render_message(
@@ -113,9 +123,10 @@ def _render_message(
     with st.chat_message(sender):
         if sender == Sender.TOOL:
             message = cast(ToolResult, message)
-            if message.output:
+            print(message)
+            if message.output and message.output.strip():
                 st.code(message.output)
-            if message.error:
+            if message.error and message.error.strip():
                 st.error(message.error)
             if message.base64_image:
                 st.image(base64.b64decode(message.base64_image))

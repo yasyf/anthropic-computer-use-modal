@@ -131,6 +131,7 @@ class BashCommandManager:
             system=(
                 "tool must be restarted" if self.exit_code else "bash command succeeded"
             ),
+            is_error=bool(self.exit_code),
         )
 
 

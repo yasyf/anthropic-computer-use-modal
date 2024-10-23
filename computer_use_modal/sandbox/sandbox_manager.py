@@ -7,6 +7,7 @@ import backoff
 import modal
 from modal import NetworkFileSystem, Sandbox
 from modal.container_process import ContainerProcess
+from modal.volume import FileEntry
 
 from computer_use_modal.app import MOUNT_PATH, app, image, sandbox_image
 from computer_use_modal.sandbox.bash_manager import BashSession, BashSessionManager
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 class SandboxManager:
     request_id: str = modal.parameter()
     auto_cleanup: int = modal.parameter(default=1)
+
 
     @modal.enter()
     async def create_sandbox(self):
@@ -47,7 +49,7 @@ class SandboxManager:
                 encrypted_ports=[8501, 6080],
             )
             logger.info("Waiting for sandbox to start...")
-            await asyncio.sleep(15)
+            await asyncio.sleep(20)
             logger.info("Sandbox started")
 
     @modal.exit()
@@ -78,15 +80,22 @@ class SandboxManager:
         logger.info(f"Command returned: {res}")
         return res
 
+    @modal.method()
     @backoff.on_exception(backoff.expo, FileNotFoundError, max_tries=3)
     async def read_file(self, path: Path) -> bytes:
         buff = BytesIO()
-        async for chunk in self.nfs.read_file.aio(
-            path.relative_to(MOUNT_PATH).as_posix()
-        ):
+        async for chunk in self.nfs.read_file.aio(path.as_posix()):
             buff.write(chunk)
         buff.seek(0)
         return buff.getvalue()
+
+    @modal.method()
+    async def write_file(self, path: Path, content: bytes):
+        await self.nfs.write_file.aio(path.as_posix(), content)
+
+    @modal.method()
+    async def stat_file(self, path: Path) -> list[FileEntry]:
+        return await self.nfs.listdir.aio(path.as_posix())
 
     @modal.method()
     async def take_screenshot(self, display: int, size: tuple[int, int]) -> ToolResult:
@@ -109,7 +118,11 @@ class SandboxManager:
             f"{size[0]}x{size[1]}!",
             path.as_posix(),
         )
-        return ToolResult(base64_image=b64encode(await self.read_file(path)).decode())
+        return ToolResult(
+            base64_image=b64encode(
+                await self.read_file.remote.aio(path.relative_to(MOUNT_PATH))
+            ).decode()
+        )
 
     @modal.method()
     async def start_bash_session(self) -> BashSession:

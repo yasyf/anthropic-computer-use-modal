@@ -24,6 +24,16 @@ class ToolError(_ToolError): ...
 @dataclass(kw_only=True, frozen=True)
 class ToolResult(_ToolResult):
     tool_use_id: str | None = None
+    is_error: bool = False
+
+    def __add__(self, other: "ToolResult"):
+        result = super().__add__(other)
+        return result.replace(
+            is_error=self.is_error or other.is_error,
+            tool_use_id=self.combine_fields(
+                self.tool_use_id, other.tool_use_id, concatenate=False
+            ),
+        )
 
     def to_api(self) -> BetaToolResultBlockParam:
         assert self.tool_use_id is not None, "tool_use_id is required"
@@ -34,27 +44,28 @@ class ToolResult(_ToolResult):
         content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
         system = f"<system>{self.system}</system>\n" if self.system else ""
 
+        if system:
+            content.append({"type": "text", "text": system})
         if self.error:
-            content = system + self.error
-        else:
-            if self.output:
-                content.append({"type": "text", "text": system + self.output})
-            if self.base64_image:
-                content.append(
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": self.base64_image,
-                        },
-                    }
-                )
+            content.append({"type": "text", "text": self.error})
+        if self.output:
+            content.append({"type": "text", "text": self.output})
+        if self.base64_image:
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": self.base64_image,
+                    },
+                }
+            )
         return {
             "type": "tool_result",
             "content": content,
             "tool_use_id": self.tool_use_id,
-            "is_error": bool(self.error),
+            "is_error": self.is_error,
         }
 
 
@@ -90,11 +101,11 @@ class ToolCollection:
     async def _run(self, *, name: str, tool_input: dict) -> ToolResult:
         tool = self.tool_map.get(name)
         if not tool:
-            return ToolResult(error=f"Tool {name} is invalid")
+            return ToolResult(error=f"Tool {name} is invalid", is_error=True)
         try:
             return await tool(**tool_input)
         except ToolError as e:
-            return ToolResult(error=e.message)
+            return ToolResult(error=e.message, is_error=True)
 
     async def run(self, *, name: str, tool_input: dict, tool_use_id: str) -> ToolResult:
         result = await self._run(name=name, tool_input=tool_input)

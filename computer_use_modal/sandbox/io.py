@@ -60,7 +60,6 @@ class IOTask:
             return True
 
     async def run(self):
-        logger.warning("io task started")
         tasks: list[asyncio.Task] = [
             asyncio.create_task(anext(self.iters[0])),
             asyncio.create_task(anext(self.iters[1])),
