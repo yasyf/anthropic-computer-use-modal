@@ -1,6 +1,6 @@
 [project]
 name = "computer-use-modal"
-version = "0.1.1"
+version = "0.1.2"
 description = "Anthropic Computer Use with Modal Sandboxes"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yasyf/anthropic-tool-use-modal"
+Homepage = "https://musings.yasyf.com/improving-claude-computer-use/"
 Repository = "https://github.com/yasyf/anthropic-tool-use-modal.git"
 
 [tool.uv]
