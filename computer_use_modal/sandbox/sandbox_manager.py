@@ -42,14 +42,15 @@ class SandboxManager:
         else:
             self.sandbox = await Sandbox.create.aio(
                 image=sandbox_image,
-                cpu=4,
-                memory=4096,
+                cpu=8,
+                memory=1024 * 8,
+                gpu="T4",
                 network_file_systems={MOUNT_PATH: self.nfs},
                 timeout=60 * 60,
                 encrypted_ports=[8501, 6080],
             )
             logger.info("Waiting for sandbox to start...")
-            await asyncio.sleep(20)
+            await asyncio.sleep(30)
             logger.info("Sandbox started")
 
     @modal.exit()

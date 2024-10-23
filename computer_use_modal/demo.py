@@ -20,7 +20,7 @@ async def demo(request_id: str = uuid4().hex):
         user_messages=[
             {
                 "role": "user",
-                "content": "print a cow in bash, then write it to a file, and add a fun joke to the top of the file using the edit tool",
+                "content": "What is the weather in San Francisco?",
             }
         ],
     )

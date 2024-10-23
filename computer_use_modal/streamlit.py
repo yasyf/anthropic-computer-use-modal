@@ -123,7 +123,6 @@ def _render_message(
     with st.chat_message(sender):
         if sender == Sender.TOOL:
             message = cast(ToolResult, message)
-            print(message)
             if message.output and message.output.strip():
                 st.code(message.output)
             if message.error and message.error.strip():
@@ -131,10 +130,11 @@ def _render_message(
             if message.base64_image:
                 st.image(base64.b64decode(message.base64_image))
         elif isinstance(message, BetaTextBlock) or isinstance(message, TextBlock):
-            st.write(message.text)
+            if message.text:
+                st.write(message.text)
         elif isinstance(message, BetaToolUseBlock) or isinstance(message, ToolUseBlock):
             st.code(f"Tool Use: {message.name}\nInput: {message.input}")
-        else:
+        elif message:
             st.markdown(message)
 
 
