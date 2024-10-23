@@ -73,6 +73,19 @@ response = server.messages_create.remote.aio(
 )
 ```
 
+```python
+{
+    'role': 'assistant',
+    'content': [
+        BetaTextBlock(
+            text='According to the National Weather Service, the current weather in San Francisco is:\n\nTemperature: 65°F (18°C)\nHumidity: 53%\nDewpoint: 48°F (9°C)\nLast update: October 23, 2:43 PM
+PDT\n\nThe website shows the forecast details as well. Would you like me to provide the extended forecast for the coming days?',
+            type='text'
+        )
+    ]
+}
+```
+
 You can also watch the progress with a VNC tunnel:
 
 ```python
