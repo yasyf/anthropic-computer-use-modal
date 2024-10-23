@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @app.cls(
     image=image,
     concurrency_limit=1,
-    allow_concurrent_inputs=10,
+    allow_concurrent_inputs=15,
     timeout=60 * 30,
     container_idle_timeout=60 * 20,
 )

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -38,7 +39,13 @@ class ToolResult(_ToolResult):
         )
 
     def is_empty(self) -> bool:
-        return not (self.error or self.output or self.base64_image or self.system)
+        return not (
+            self.error
+            or self.output
+            or self.base64_image
+            or self.system
+            or self.tool_use_id
+        )
 
     def to_api(self) -> BetaToolResultBlockParam:
         assert self.tool_use_id is not None, "tool_use_id is required"
@@ -91,6 +98,7 @@ class BaseTool(ABC, Generic[P]):
 class ToolCollection:
     tools: tuple[BaseTool, ...]
     results: list[ToolResult] = field(default_factory=list)
+    timeout: int = 60
 
     @property
     def tool_map(self) -> dict[str, BaseTool]:
@@ -106,7 +114,10 @@ class ToolCollection:
         if not tool:
             return ToolResult(error=f"Tool {name} is invalid", is_error=True)
         try:
-            return await tool(**tool_input)
+            async with asyncio.timeout(self.timeout):
+                return await tool(**tool_input)
+        except asyncio.TimeoutError:
+            return ToolResult(error=f"Tool {name} timed out. Try again.", is_error=True)
         except ToolError as e:
             logger.error(f"ToolError: {e}")
             return ToolResult(error=e.message, is_error=True)
@@ -117,7 +128,5 @@ class ToolCollection:
     async def run(self, *, name: str, tool_input: dict, tool_use_id: str) -> ToolResult:
         result = await self._run(name=name, tool_input=tool_input)
         result = result.replace(tool_use_id=tool_use_id)
-        if result.is_empty():
-            result = result.replace(output=f"{name} tool completed successfully")
         self.results.append(result)
         return result
