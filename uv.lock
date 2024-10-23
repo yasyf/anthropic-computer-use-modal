@@ -254,6 +254,7 @@ dependencies = [
     { name = "annotated-types" },
     { name = "anthropic" },
     { name = "backoff" },
+    { name = "fuzzysearch" },
     { name = "modal" },
     { name = "pydantic" },
     { name = "rich" },
@@ -270,6 +271,7 @@ requires-dist = [
     { name = "annotated-types", specifier = ">=0.7.0" },
     { name = "anthropic", specifier = ">=0.37.1" },
     { name = "backoff", specifier = ">=2.2.1" },
+    { name = "fuzzysearch", specifier = ">=0.7.3" },
     { name = "modal", specifier = ">=0.64.211" },
     { name = "pydantic", specifier = ">=2.9.2" },
     { name = "rich", specifier = ">=13.9.3" },
@@ -343,6 +345,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/a0/52/f16a068ebadae4252
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/b2/454d6e7f0158951d8a78c2e1eb4f69ae81beb8dca5fee9809c6c99e9d0d0/fsspec-2024.10.0-py3-none-any.whl", hash = "sha256:03b9a6785766a4de40368b88906366755e2819e758b83705c88cd7cb5fe81871", size = 179641 },
 ]
+
+[[package]]
+name = "fuzzysearch"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/28/3e9e4e55fd35356f331a22976694e151eb0214b68d3cd471936f9c09deba/fuzzysearch-0.7.3.tar.gz", hash = "sha256:d5a1b114ceee50a5e181b2fe1ac1b4371ac8db92142770a48fed49ecbc37ca4c", size = 112677 }
 
 [[package]]
 name = "gitdb"

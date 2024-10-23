@@ -34,7 +34,10 @@ class BashSessionManager:
                 self.session.session_id, _gross_modal_hack(self.sandbox)._client
             )
         else:
-            self.proc = cast(ContainerProcess, await self.sandbox.exec.aio("bash"))
+            self.proc = cast(
+                ContainerProcess,
+                await self.sandbox.exec.aio("bash"),
+            )
             process_id = _gross_modal_hack(self.proc)._process_id
             assert process_id is not None
             self.session = BashSession(session_id=process_id)

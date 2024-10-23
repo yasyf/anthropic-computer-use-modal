@@ -40,9 +40,11 @@ sandbox_image = (
     .run_commands(
         "sed -i 's|Exec=firefox-esr -new-window|Exec=sudo firefox-esr -new-window|' /home/computeruse/.config/tint2/applications/firefox-custom.desktop",
         "add-apt-repository ppa:mozillateam/ppa",
+        "add-apt-repository ppa:apt-fast/stable",
         f"echo '{FIREFOX_PIN}' | base64 --decode | tee /etc/apt/preferences.d/mozilla-firefox",
-        "apt-get update -y && apt-get install -y firefox-esr",
+        "apt-get update -y && apt-get install -y firefox-esr apt-fast",
         "apt remove -y xdg-desktop-portal",
+        "timeout 5 sudo firefox-esr -new-window",
     )
 )
 secrets = Secret.from_local_environ(["ANTHROPIC_API_KEY"])

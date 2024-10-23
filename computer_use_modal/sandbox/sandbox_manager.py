@@ -5,9 +5,9 @@ from pathlib import Path
 
 import backoff
 import modal
+from grpclib import GRPCError
 from modal import NetworkFileSystem, Sandbox
 from modal.container_process import ContainerProcess
-from modal.volume import FileEntry
 
 from computer_use_modal.app import MOUNT_PATH, app, image, sandbox_image
 from computer_use_modal.sandbox.bash_manager import BashSession, BashSessionManager
@@ -84,18 +84,24 @@ class SandboxManager:
     @backoff.on_exception(backoff.expo, FileNotFoundError, max_tries=3)
     async def read_file(self, path: Path) -> bytes:
         buff = BytesIO()
-        async for chunk in self.nfs.read_file.aio(path.as_posix()):
-            buff.write(chunk)
+        try:
+            async for chunk in self.nfs.read_file.aio(path.as_posix()):
+                buff.write(chunk)
+        except GRPCError:
+            raise FileNotFoundError(f"File not found: {path}")
         buff.seek(0)
         return buff.getvalue()
 
     @modal.method()
     async def write_file(self, path: Path, content: bytes):
-        await self.nfs.write_file.aio(path.as_posix(), content)
+        await self.nfs.write_file.aio(path.as_posix(), BytesIO(content))
 
     @modal.method()
-    async def stat_file(self, path: Path) -> list[FileEntry]:
-        return await self.nfs.listdir.aio(path.as_posix())
+    async def stat_file(self, path: Path) -> list[dict]:
+        try:
+            return [e.__dict__ for e in await self.nfs.listdir.aio(path.as_posix())]
+        except GRPCError:
+            return []
 
     @modal.method()
     async def take_screenshot(self, display: int, size: tuple[int, int]) -> ToolResult:

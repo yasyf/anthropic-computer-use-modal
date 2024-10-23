@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated, Literal, Union
 
 from annotated_types import Gt, Len
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from computer_use_modal.vnd.anthropic.tools.edit import Command
 
@@ -22,11 +22,6 @@ class BaseEditRequest(BaseModel):
     def validate_path(cls, v: str | Path):
         if isinstance(v, str):
             v = Path(v)
-
-        if not v.is_absolute():
-            raise ValidationError(
-                f"The path {v} is not an absolute path, it should start with `/`. Maybe you meant {Path("") / v}?"
-            )
         return v
 
 

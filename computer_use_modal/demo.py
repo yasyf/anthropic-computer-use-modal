@@ -25,11 +25,14 @@ async def demo(request_id: str = uuid4().hex):
         ],
     )
     async for msg in res:
-        if isinstance(msg, ToolResult) and msg.base64_image:
-            proc = await asyncio.create_subprocess_shell(
-                "viu -", stdin=asyncio.subprocess.PIPE
-            )
-            await proc.communicate(base64.b64decode(msg.base64_image))
-            await proc.wait()
+        if isinstance(msg, ToolResult):
+            if msg.base64_image:
+                proc = await asyncio.create_subprocess_shell(
+                    "viu -", stdin=asyncio.subprocess.PIPE
+                )
+                await proc.communicate(base64.b64decode(msg.base64_image))
+                await proc.wait()
+            else:
+                print("[bold]Tool Result:[/bold]", msg)
         elif isinstance(msg, dict) and msg["role"] == "assistant":
             print("[bold]Response:[/bold]", msg)

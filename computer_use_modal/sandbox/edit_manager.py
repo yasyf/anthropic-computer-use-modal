@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import singledispatchmethod
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 SESSIONS = modal.Dict.from_name("edit-sessions", create_if_missing=True)
 
+logger = logging.getLogger(__name__)
 @dataclass(frozen=True, kw_only=True)
 class EditSession:
     file_versions: dict[Path, list[str]] = field(
@@ -62,7 +64,8 @@ class FileInfo:
         )
 
     async def write(self, content: str):
-        self.manager.session.file_versions[self.path].append(await self.read())
+        if self.exists():
+            self.manager.session.file_versions[self.path].append(await self.read())
         await self.manager.sandbox.write_file.remote.aio(
             self.path, content.expandtabs().encode()
         )
@@ -80,8 +83,15 @@ class EditSessionManager:
 
     async def _validate_request(self, request: TRequest):
         info = FileInfo(
-            path=request.path,
-            listing=await self.sandbox.stat_file.remote.aio(request.path),
+            path=(
+                request.path.relative_to(MOUNT_PATH)
+                if MOUNT_PATH in request.path.as_posix()
+                else request.path
+            ),
+            listing=[
+                FileEntry(**e)
+                for e in await self.sandbox.stat_file.remote.aio(request.path)
+            ],
             manager=self,
         )
         if request.command != "create" and not info.exists():
@@ -103,7 +113,9 @@ class EditSessionManager:
         return info
 
     def _make_output(self, body: str, fname: str, start: int = 1):
-        return ToolResult(output=make_output(body, fname, start))
+        res = ToolResult(output=make_output(body, fname, start))
+        logger.info(f"edit_manager: {res}")
+        return res
 
     @singledispatchmethod
     async def dispatch(self, request: TRequest) -> ToolResult:
@@ -153,8 +165,17 @@ class EditSessionManager:
 
     @dispatch.register(StrReplaceRequest)
     async def str_replace(self, request: StrReplaceRequest):
+        import fuzzysearch
+
         f = await self._validate_request(request)
         content = await f.read()
+
+        if request.old_str not in content and (
+            matches := fuzzysearch.find_near_matches(
+                request.old_str, content, max_l_dist=3
+            )
+        ):
+            request.old_str = matches[0].matched
 
         if (occurrences := content.count(request.old_str)) == 0:
             raise ToolError(

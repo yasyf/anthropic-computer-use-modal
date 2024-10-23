@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Generic, Mapping, TypeVar
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 
 P = TypeVar("P", bound=Mapping)
 
+logger = logging.getLogger(__name__)
 
 class ToolError(_ToolError): ...
 
@@ -105,7 +107,11 @@ class ToolCollection:
         try:
             return await tool(**tool_input)
         except ToolError as e:
+            logger.error(f"ToolError: {e}")
             return ToolResult(error=e.message, is_error=True)
+        except Exception as e:
+            logger.error(f"Exception: {e}")
+            return ToolResult(error=str(e), is_error=True)
 
     async def run(self, *, name: str, tool_input: dict, tool_use_id: str) -> ToolResult:
         result = await self._run(name=name, tool_input=tool_input)
