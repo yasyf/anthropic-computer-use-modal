@@ -99,7 +99,11 @@ async def main():
                     _render_message(Sender.TOOL, msg)
                     st.session_state.tools[msg.tool_use_id] = msg
                 else:
-                    _render_message(Sender.BOT, msg)
+                    if isinstance(msg["content"], str):
+                        _render_message(message["role"], message["content"])
+                    elif isinstance(message["content"], list):
+                        for block in message["content"]:
+                            _render_message(Sender.BOT, block)
 
 
 def _render_message(

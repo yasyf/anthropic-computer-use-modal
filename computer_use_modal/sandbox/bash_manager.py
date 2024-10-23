@@ -22,6 +22,7 @@ class BashSessionManager:
 
     async def start(self) -> BashSession:
         proc: ContainerProcess = await self.sandbox.exec.aio("bash")
+        print(dir(proc))
         assert proc._process_id is not None
         self.session = BashSession(session_id=proc._process_id)
         self.session = replace(
