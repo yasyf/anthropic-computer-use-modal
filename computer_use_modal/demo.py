@@ -15,7 +15,7 @@ async def demo(request_id: str = uuid4().hex):
     print("[bold]Debug URLs:[/bold]", await sandbox.debug_urls.remote.aio())
 
     server = ComputerUseServer()
-    res = server.messages_create.remote_gen.aio(
+    res = server.messages_create_gen.remote_gen.aio(
         request_id=request_id,
         user_messages=[
             {

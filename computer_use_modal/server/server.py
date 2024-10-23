@@ -27,8 +27,27 @@ class ComputerUseServer:
 
         self.client = Anthropic()
 
-    @modal.method(is_generator=True)
+    @modal.method()
     async def messages_create(
+        self,
+        request_id: str,
+        user_messages: list[BetaMessageParam],
+        max_tokens: int = 4096,
+        model: str = "claude-3-5-sonnet-20241022",
+    ):
+        messages = [
+            msg
+            async for msg in self.messages_create_gen.remote_gen.aio(
+                request_id=request_id,
+                user_messages=user_messages,
+                max_tokens=max_tokens,
+                model=model,
+            )
+        ]
+        return messages[-1]
+
+    @modal.method(is_generator=True)
+    async def messages_create_gen(
         self,
         request_id: str,
         user_messages: list[BetaMessageParam],
