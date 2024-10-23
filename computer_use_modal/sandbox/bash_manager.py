@@ -125,15 +125,13 @@ class BashCommandManager:
         await self.loop()
         if self.SENTINEL in (output := self.stdout.getvalue()):
             output = output[: output.index(self.SENTINEL)]
-        res = ToolResult(
+        return ToolResult(
             output=output,
             error=self.stderr.getvalue(),
-            system="tool must be restarted"
-            if self.exit_code
-            else "bash command succeeded",
+            system=(
+                "tool must be restarted" if self.exit_code else "bash command succeeded"
+            ),
         )
-        logger.info(f"command result: {res}")
-        return res
 
 
 def _gross_modal_hack(obj: Any):
