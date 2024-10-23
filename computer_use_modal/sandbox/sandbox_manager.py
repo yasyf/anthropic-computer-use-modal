@@ -8,7 +8,7 @@ import modal
 from modal import NetworkFileSystem, Sandbox, SchedulerPlacement
 from modal.container_process import ContainerProcess
 
-from computer_use_modal.modal import MOUNT_PATH, app, image, sandbox_image
+from computer_use_modal.app import MOUNT_PATH, app, image, sandbox_image
 from computer_use_modal.sandbox.bash_manager import BashSession, BashSessionManager
 from computer_use_modal.tools.base import ToolResult
 
@@ -47,7 +47,7 @@ class SandboxManager:
                 _experimental_scheduler_placement=SchedulerPlacement(region="us"),
             )
             logger.info("Waiting for sandbox to start...")
-            await asyncio.sleep(30)
+            await asyncio.sleep(15)
             logger.info("Sandbox started")
 
     @modal.exit()

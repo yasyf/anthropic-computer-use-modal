@@ -3,11 +3,12 @@ from dataclasses import dataclass
 from typing import Self, cast
 
 import modal
-from anthropic.types import ToolResultBlockParam
 from anthropic.types.beta import (
+    BetaCacheControlEphemeralParam,
     BetaContentBlockParam,
     BetaMessageParam,
     BetaToolResultBlockParam,
+    BetaToolUseBlockParam,
 )
 
 MESSAGES = modal.Dict.from_name("messages", create_if_missing=True)
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class Messages:
     CHUNK_SIZE: int = 10
+    MAX_CACHE_CONTROL: int = 4
 
     request_id: str
     _messages: list[BetaMessageParam]
@@ -30,6 +32,7 @@ class Messages:
         )
 
     async def flush(self):
+        self._filter_cache_control()
         self._filter_images()
         await MESSAGES.put.aio(self.request_id, self)
 
@@ -54,22 +57,41 @@ class Messages:
         self._messages.append(
             msg := {"content": tool_results, "role": "user"},
         )
+        self.tool_results[-1]["cache_control"] = cast(
+            BetaCacheControlEphemeralParam, {"type": "ephemeral"}
+        )
         await self.flush()
         return msg
 
     @property
-    def tool_results(self) -> list[ToolResultBlockParam]:
+    def tool_results(self) -> list[BetaToolUseBlockParam]:
         return cast(
-            list[ToolResultBlockParam],
+            list[BetaToolUseBlockParam],
             [
                 item
-                for message in self.messages
+                for message in self._messages
                 for item in (
                     message["content"] if isinstance(message["content"], list) else []
                 )
                 if isinstance(item, dict) and item.get("type") == "tool_result"
             ],
         )
+
+    def _filter_cache_control(self):
+        total_cache_control = sum(
+            1 for tool_result in self.tool_results if "cache_control" in tool_result
+        )
+        logger.info(f"Total cache control: {total_cache_control}")
+        if (to_remove := total_cache_control - self.MAX_CACHE_CONTROL) <= 0:
+            return
+        while to_remove > 0:
+            for tool_result in self.tool_results:
+                if "cache_control" not in tool_result:
+                    continue
+                tool_result.pop("cache_control")
+                to_remove -= 1
+                if to_remove == 0:
+                    return
 
     def _filter_images(self):
         total_images = sum(
@@ -93,7 +115,9 @@ class Messages:
                 if not isinstance(contents := res.get("content"), list):
                     continue
                 for content in contents.copy():
-                    if not isinstance(content, dict) and content.get("type") == "image":
+                    if not (
+                        isinstance(content, dict) and content.get("type") == "image"
+                    ):
                         continue
                     contents.remove(content)
                     images_to_remove -= 1

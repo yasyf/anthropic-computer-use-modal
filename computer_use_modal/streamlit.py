@@ -8,8 +8,9 @@ import streamlit as st
 from anthropic.types import TextBlock
 from anthropic.types.beta import BetaTextBlock, BetaToolUseBlock
 from anthropic.types.tool_use_block import ToolUseBlock
+from modal import Cls
 
-from computer_use_modal import ComputerUseServer
+from computer_use_modal import ComputerUseServer, app
 from computer_use_modal.tools.base import ToolResult
 
 STREAMLIT_STYLE = """
@@ -85,7 +86,9 @@ async def main():
             return
 
         with st.spinner("Running Agent..."):
-            res = ComputerUseServer().messages_create.remote_gen.aio(
+            res = Cls.lookup(
+                app.name, ComputerUseServer.__name__
+            ).messages_create.remote_gen.aio(
                 request_id=st.session_state.request_id,
                 user_messages=[
                     {"role": "user", "content": "What is the weather in San Francisco?"}

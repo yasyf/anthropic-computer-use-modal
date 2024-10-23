@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Self
 import modal
 from modal.volume import FileEntry, FileEntryType
 
-from computer_use_modal.modal import MOUNT_PATH
+from computer_use_modal.app import MOUNT_PATH
 from computer_use_modal.tools.base import ToolError, ToolResult
 from computer_use_modal.tools.edit.types import (
     CreateRequest,

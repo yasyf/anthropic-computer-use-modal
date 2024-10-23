@@ -9,7 +9,7 @@ from anthropic.types.beta import (
     BetaMessageParam,
 )
 
-from computer_use_modal.modal import app, image, secrets
+from computer_use_modal.app import app, image, secrets
 from computer_use_modal.sandbox.sandbox_manager import SandboxManager
 from computer_use_modal.server.messages import Messages
 from computer_use_modal.server.prompts import SYSTEM_PROMPT
@@ -53,7 +53,7 @@ class ComputerUseServer:
                 model=model,
                 system=SYSTEM_PROMPT,
                 tools=tool_runner.to_params(),
-                betas=["computer-use-2024-10-22"],
+                betas=["computer-use-2024-10-22", "prompt-caching-2024-07-31"],
             )
             yield await messages.add_assistant_content(
                 cast(list[BetaContentBlockParam], response.content)
@@ -74,3 +74,8 @@ class ComputerUseServer:
             for result in tool_runner.results:
                 yield result
             yield await messages.add_tool_result(results)
+
+    @modal.method()
+    async def debug(self, request_id: str):
+        manager = SandboxManager(request_id=request_id)
+        return await manager.debug_urls.remote.aio()

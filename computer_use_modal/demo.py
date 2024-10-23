@@ -5,7 +5,7 @@ from uuid import uuid4
 from rich import print
 
 from computer_use_modal import ComputerUseServer, SandboxManager
-from computer_use_modal.modal import app
+from computer_use_modal.app import app
 from computer_use_modal.tools.base import ToolResult
 
 
@@ -28,5 +28,5 @@ async def demo(request_id: str = uuid4().hex):
             )
             await proc.communicate(base64.b64decode(msg.base64_image))
             await proc.wait()
-        else:
+        elif isinstance(msg, dict) and msg["role"] == "assistant":
             print("[bold]Response:[/bold]", msg)
