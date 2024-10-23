@@ -1,13 +1,15 @@
 import asyncio
-import shlex
+import logging
 from dataclasses import dataclass, field, replace
 from io import StringIO
+from typing import Any
 
 from modal import Sandbox
 from modal.container_process import ContainerProcess
 
-from computer_use_modal.tools.base import ToolError, ToolResult
+from computer_use_modal.tools.base import ToolResult
 
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class BashSession:
@@ -22,11 +24,11 @@ class BashSessionManager:
 
     async def start(self) -> BashSession:
         proc: ContainerProcess = await self.sandbox.exec.aio("bash")
-        print(dir(proc))
-        assert proc._process_id is not None
-        self.session = BashSession(session_id=proc._process_id)
+        process_id = _gross_modal_hack(proc)._process_id
+        assert process_id is not None
+        self.session = BashSession(session_id=process_id)
         self.session = replace(
-            self.session, pid=int((await self.run("echo $$")).output.strip())
+            self.session, pid=int((await self.run("echo", "$BASHPID")).output.strip())
         )
         return self.session
 
@@ -52,14 +54,16 @@ class BashCommandManager:
 
     stdout: StringIO = field(default_factory=StringIO)
     stderr: StringIO = field(default_factory=StringIO)
-    timeout: float = 30
+    timeout: float = 60
 
     proc: ContainerProcess | None = None
     exit_code: int | None = None
 
     async def start(self, *command: str):
-        self.proc = ContainerProcess(self.session.session_id, self.sandbox._client)
-        self.proc.stdin.write(f"{shlex.join(command)}; echo '{self.SENTINEL}'\n")
+        self.proc = ContainerProcess(
+            self.session.session_id, _gross_modal_hack(self.sandbox)._client
+        )
+        self.proc.stdin.write(f"{' '.join(command)}; echo '{self.SENTINEL}'\n")
         await self.proc.stdin.drain.aio()
 
     async def _wait(self):
@@ -76,14 +80,18 @@ class BashCommandManager:
                 timeout=self.timeout,
             )
             if not done:
-                raise ToolError(
-                    f"timed out: bash has not returned in {self.timeout} seconds and must be restarted",
+                self.stderr.write(
+                    f"timed out: bash has not returned in {self.timeout} seconds and must be restarted"
                 )
+                self._exit_code = -1
+                break
             if stderr.done():
-                self.stderr.write(stderr.result())
+                self.stderr.write(line := stderr.result())
+                logger.info(f"stderr: {line}")
                 stderr = asyncio.create_task(anext(stderr_io))
             if stdout.done():
-                self.stdout.write(stdout.result())
+                self.stdout.write(line := stdout.result())
+                logger.info(f"stdout: {line}")
                 if self.SENTINEL in self.stdout.getvalue():
                     break
                 stdout = asyncio.create_task(anext(stdout_io))
@@ -96,9 +104,21 @@ class BashCommandManager:
 
     async def wait(self):
         await self._wait()
-        if self.exit_code:
+        if self.exit_code and self.exit_code > 0:
             return ToolResult(
                 system="tool must be restarted",
                 error=f"bash has exited with returncode {self.exit_code}",
             )
-        return ToolResult(output=self.stdout.getvalue(), error=self.stderr.getvalue())
+        output = self.stdout.getvalue()
+        try:
+            output = output[: output.index(self.SENTINEL)]
+        except ValueError:
+            pass
+        return ToolResult(output=output, error=self.stderr.getvalue())
+
+
+def _gross_modal_hack(obj: Any):
+    for k, v in obj.__dict__.items():
+        if k.startswith("_sync_original_"):
+            return v
+    return obj

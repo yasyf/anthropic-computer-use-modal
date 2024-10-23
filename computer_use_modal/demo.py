@@ -17,9 +17,7 @@ async def demo(request_id: str = uuid4().hex):
     server = ComputerUseServer()
     res = server.messages_create.remote_gen.aio(
         request_id=request_id,
-        user_messages=[
-            {"role": "user", "content": "What is the weather in San Francisco?"}
-        ],
+        user_messages=[{"role": "user", "content": "print a cow in bash"}],
     )
     async for msg in res:
         if isinstance(msg, ToolResult) and msg.base64_image:

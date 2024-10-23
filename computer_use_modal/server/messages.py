@@ -81,7 +81,6 @@ class Messages:
         total_cache_control = sum(
             1 for tool_result in self.tool_results if "cache_control" in tool_result
         )
-        logger.info(f"Total cache control: {total_cache_control}")
         if (to_remove := total_cache_control - self.MAX_CACHE_CONTROL) <= 0:
             return
         while to_remove > 0:

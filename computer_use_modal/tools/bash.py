@@ -18,13 +18,14 @@ class BashTool(BaseTool[BetaToolBash20241022Param]):
     async def __call__(
         self,
         /,
-        command: str,
+        command: str | None = None,
         restart: bool = False,
     ):
         if restart:
             if self.session is None:
                 raise ToolError("No active bash session")
             await self.manager.end_bash_session.remote.aio(self.session)
+            self.session = None
             return ToolResult(system="bash tool has been restarted")
         if not command:
             return ToolResult(system="no command provided")
