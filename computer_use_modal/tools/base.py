@@ -37,11 +37,12 @@ class ToolResult(_ToolResult):
             ),
         )
 
+    def is_empty(self) -> bool:
+        return not (self.error or self.output or self.base64_image or self.system)
+
     def to_api(self) -> BetaToolResultBlockParam:
         assert self.tool_use_id is not None, "tool_use_id is required"
-        assert (
-            self.error or self.output or self.base64_image or self.system
-        ), "content is required"
+        assert not self.is_empty(), "content is required"
 
         content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
         system = f"<system>{self.system}</system>\n" if self.system else ""
@@ -116,5 +117,7 @@ class ToolCollection:
     async def run(self, *, name: str, tool_input: dict, tool_use_id: str) -> ToolResult:
         result = await self._run(name=name, tool_input=tool_input)
         result = result.replace(tool_use_id=tool_use_id)
+        if result.is_empty():
+            result = result.replace(output=f"{name} tool completed successfully")
         self.results.append(result)
         return result

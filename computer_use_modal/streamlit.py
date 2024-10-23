@@ -35,7 +35,7 @@ class Sender(StrEnum):
 
 
 def setup_state():
-    st.session_state.last_role = Sender.USER
+    st.session_state.last_role = None
     st.session_state.request_id = uuid4().hex
 
 

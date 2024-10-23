@@ -50,7 +50,7 @@ class ComputerToolOptions(TypedDict):
 class ComputerToolMixin:
     TYPING_DELAY_MS = TYPING_DELAY_MS
     TYPING_GROUP_SIZE = TYPING_GROUP_SIZE
-    SCREENSHOT_DELAY_S = 2
+    SCREENSHOT_DELAY_S = 1
 
     width: int
     height: int

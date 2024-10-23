@@ -20,6 +20,7 @@ FIREFOX_PIN = base64.b64encode(
 
 image = (
     Image.debian_slim(python_version="3.12")
+    .apt_install("libmagickwand-dev")
     .env(
         {
             "UV_PROJECT_ENVIRONMENT": "/usr/local",

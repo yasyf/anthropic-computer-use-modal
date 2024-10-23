@@ -2,6 +2,7 @@ import asyncio
 import logging
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 
 import backoff
 import modal
@@ -25,7 +26,6 @@ logger = logging.getLogger(__name__)
 class SandboxManager:
     request_id: str = modal.parameter()
     auto_cleanup: int = modal.parameter(default=1)
-
 
     @modal.enter()
     async def create_sandbox(self):
@@ -109,6 +109,7 @@ class SandboxManager:
         from base64 import b64encode
 
         from uuid6 import uuid7
+        from wand.image import Image
 
         path = Path(MOUNT_PATH) / f"{uuid7().hex}.png"
         await self.run_command.local(
@@ -118,18 +119,13 @@ class SandboxManager:
             "-p",
             path.as_posix(),
         )
-        await self.run_command.local(
-            "convert",
-            path.as_posix(),
-            "-resize",
-            f"{size[0]}x{size[1]}!",
-            path.as_posix(),
-        )
-        return ToolResult(
-            base64_image=b64encode(
-                await self.read_file.remote.aio(path.relative_to(MOUNT_PATH))
-            ).decode()
-        )
+        with Image(
+            blob=await self.read_file.remote.aio(path.relative_to(MOUNT_PATH))
+        ) as img:
+            img.resize(width=size[0], height=size[1])
+            return ToolResult(
+                base64_image=b64encode(cast(bytes, img.make_blob())).decode()
+            )
 
     @modal.method()
     async def start_bash_session(self) -> BashSession:
