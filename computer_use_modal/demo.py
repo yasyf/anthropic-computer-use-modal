@@ -1,4 +1,5 @@
-from asyncio import sleep
+import asyncio
+import base64
 from uuid import uuid4
 
 from rich import print
@@ -13,11 +14,17 @@ async def demo(request_id: str = uuid4().hex):
     print("[bold]Debug URLs:[/bold]", await sandbox.debug_urls.remote.aio())
 
     server = ComputerUseServer()
-    res = await server.messages_create.remote.aio(
+    res = server.messages_create.remote_gen.aio(
         request_id=request_id,
         user_messages=[
             {"role": "user", "content": "What is the weather in San Francisco?"}
         ],
     )
-    print("[bold]Response:[/bold]", res)
-    await sleep(100000)
+    async for msg in res:
+        print("[bold]Response:[/bold]", msg)
+        if msg.base64_image:
+            proc = await asyncio.create_subprocess_shell(
+                "viu -", stdin=asyncio.subprocess.PIPE
+            )
+            await proc.communicate(base64.b64decode(msg.base64_image))
+            await proc.wait()

@@ -46,7 +46,7 @@ class ComputerTool(BaseTool[BetaToolComputerUse20241022Param], ComputerToolMixin
         }
 
     def _command(self, *args):
-        return (f"DISPLAY=:{self.display_num}", "xdotool") + args
+        return ("env", f"DISPLAY=:{self.display_num}", "xdotool") + args
 
     async def __call__(
         self,
@@ -89,12 +89,15 @@ class ComputerTool(BaseTool[BetaToolComputerUse20241022Param], ComputerToolMixin
             await self.execute(
                 *self._command(
                     "type", "--delay", self.TYPING_DELAY_MS, "--", shlex.quote(chunk)
-                )
+                ),
+                take_screenshot=False,
             )
             for chunk in self.chunks(request.text, self.TYPING_GROUP_SIZE)
         ]
         result = sum(results, ToolResult())
-        return result.replace(base64_image=(await self.screenshot()).base64_image)
+        return result.replace(
+            base64_image=(await self.screenshot(ScreenshotRequest())).base64_image
+        )
 
     @dispatch.register(LeftClickRequest)
     async def left_click(self, request: LeftClickRequest):
@@ -141,4 +144,4 @@ class ComputerTool(BaseTool[BetaToolComputerUse20241022Param], ComputerToolMixin
         if not take_screenshot:
             return result
         await asyncio.sleep(self.SCREENSHOT_DELAY_S)
-        return result + await self.screenshot()
+        return result + await self.screenshot(ScreenshotRequest())

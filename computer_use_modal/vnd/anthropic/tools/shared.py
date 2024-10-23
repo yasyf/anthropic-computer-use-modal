@@ -1,10 +1,6 @@
 from dataclasses import dataclass, fields, replace
 
-from anthropic.types.beta import (
-    BetaImageBlockParam,
-    BetaTextBlockParam,
-    BetaToolResultBlockParam,
-)
+from pydantic import Field
 
 
 class ToolError(Exception):
@@ -20,7 +16,7 @@ class ToolResult:
 
     output: str | None = None
     error: str | None = None
-    base64_image: str | None = None
+    base64_image: str | None = Field(default=None, repr=False)
     system: str | None = None
 
     def __bool__(self):
@@ -46,30 +42,3 @@ class ToolResult:
     def replace(self, **kwargs):
         """Returns a new ToolResult with the given fields replaced."""
         return replace(self, **kwargs)
-
-    def to_api(self, tool_use_id: str) -> BetaToolResultBlockParam:
-        content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
-        system = f"<system>{self.system}</system>\n" if self.system else ""
-
-        if self.error:
-            content = system + self.error
-        else:
-            if self.output:
-                content.append({"type": "text", "text": system + self.output})
-            if self.base64_image:
-                content.append(
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": self.base64_image,
-                        },
-                    }
-                )
-        return {
-            "type": "tool_result",
-            "content": content,
-            "tool_use_id": tool_use_id,
-            "is_error": bool(self.error),
-        }

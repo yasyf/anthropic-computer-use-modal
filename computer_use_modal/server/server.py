@@ -1,4 +1,5 @@
-from typing import cast
+import logging
+from typing import AsyncGenerator, cast
 
 import modal
 from anthropic import Anthropic
@@ -8,65 +9,68 @@ from anthropic.types.beta import (
     BetaMessageParam,
 )
 
-from computer_use_modal.modal import app, image
+from computer_use_modal.modal import app, image, secrets
 from computer_use_modal.sandbox.sandbox_manager import SandboxManager
 from computer_use_modal.server.messages import Messages
 from computer_use_modal.server.prompts import SYSTEM_PROMPT
-from computer_use_modal.tools.base import ToolCollection
+from computer_use_modal.tools.base import ToolCollection, ToolResult
 from computer_use_modal.tools.bash import BashTool
 from computer_use_modal.tools.computer.computer import ComputerTool
 from computer_use_modal.tools.edit.edit import EditTool
 
 
-@app.cls(image=image, allow_concurrent_inputs=10)
+@app.cls(image=image, allow_concurrent_inputs=10, secrets=[secrets])
 class ComputerUseServer:
     @modal.enter()
     def init(self):
+        logging.basicConfig(level=logging.INFO)
+
         self.client = Anthropic()
 
-    @modal.method()
+    @modal.method(is_generator=True)
     async def messages_create(
         self,
         request_id: str,
         user_messages: list[BetaMessageParam],
         max_tokens: int = 4096,
         model: str = "claude-3-5-sonnet-20241022",
-    ):
+    ) -> AsyncGenerator[BetaMessageParam | ToolResult, None]:
         manager = SandboxManager(request_id=request_id)
         messages = await Messages.from_request_id(request_id)
         await messages.add_user_messages(user_messages)
 
-        tools = ToolCollection(
-            tools=(
-                ComputerTool(manager=manager),
-                EditTool(manager=manager),
-                BashTool(manager=manager),
-            )
+        tools = (
+            ComputerTool(manager=manager),
+            EditTool(manager=manager),
+            BashTool(manager=manager),
         )
+
         while True:
+            tool_runner = ToolCollection(tools=tools)
             response = self.client.beta.messages.create(
                 max_tokens=max_tokens,
                 messages=messages.messages,
                 model=model,
                 system=SYSTEM_PROMPT,
-                tools=tools.to_params(),
+                tools=tool_runner.to_params(),
                 betas=["computer-use-2024-10-22"],
             )
-            await messages.add_assistant_content(
-                ai_content := cast(list[BetaContentBlockParam], response.content)
+            yield await messages.add_assistant_content(
+                cast(list[BetaContentBlockParam], response.content)
             )
             results = [
                 (
-                    await tools.run(
+                    await tool_runner.run(
                         name=content_block.name,
                         tool_input=cast(dict, content_block.input),
+                        tool_use_id=content_block.id,
                     )
-                ).to_api(content_block.id)
+                ).to_api()
                 for content_block in cast(list[BetaContentBlock], response.content)
                 if content_block.type == "tool_use"
             ]
             if not results:
-                return "\n".join(
-                    [block["text"] for block in ai_content if block["type"] == "text"]
-                )
-            await messages.add_tool_result(results)
+                return
+            for result in tool_runner.results:
+                yield result
+            yield await messages.add_tool_result(results)

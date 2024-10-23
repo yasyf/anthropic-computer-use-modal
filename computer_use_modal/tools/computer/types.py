@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Union
 
-from annotated_types import Gt, Len
+from annotated_types import Gt
 from pydantic import BaseModel, Field, TypeAdapter
 
 from computer_use_modal.vnd.anthropic.tools.computer import Action
@@ -18,7 +18,7 @@ class BaseComputerRequest(BaseModel):
 
 
 class CoordinateRequest(BaseComputerRequest):
-    coordinate: Annotated[tuple[int, int], Len(2, 2), Gt(0)]
+    coordinate: tuple[Annotated[int, Gt(0)], Annotated[int, Gt(0)]]
 
 
 class MouseMoveRequest(CoordinateRequest):

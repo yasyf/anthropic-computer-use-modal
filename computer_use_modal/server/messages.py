@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Self, cast
 
@@ -9,8 +10,9 @@ from anthropic.types.beta import (
     BetaToolResultBlockParam,
 )
 
-
 MESSAGES = modal.Dict.from_name("messages", create_if_missing=True)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
@@ -36,16 +38,24 @@ class Messages:
         return tuple(self._messages)
 
     async def add_assistant_content(self, content: list[BetaContentBlockParam]):
-        self._messages.append({"role": "assistant", "content": content})
+        logger.info(f"AI said: {content}")
+        self._messages.append(
+            msg := {"role": "assistant", "content": content},
+        )
         await self.flush()
+        return msg
 
     async def add_user_messages(self, messages: list[BetaMessageParam]):
+        logger.info(f"User said: {messages}")
         self._messages.extend(messages)
         await self.flush()
 
     async def add_tool_result(self, tool_results: list[BetaToolResultBlockParam]):
-        self._messages.append({"content": tool_results, "role": "user"})
+        self._messages.append(
+            msg := {"content": tool_results, "role": "user"},
+        )
         await self.flush()
+        return msg
 
     @property
     def tool_results(self) -> list[ToolResultBlockParam]:

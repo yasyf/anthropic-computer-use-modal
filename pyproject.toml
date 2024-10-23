@@ -7,8 +7,14 @@ requires-python = ">=3.12"
 dependencies = [
     "annotated-types>=0.7.0",
     "anthropic>=0.37.1",
+    "backoff>=2.2.1",
     "modal>=0.64.211",
     "pydantic>=2.9.2",
     "rich>=13.9.3",
     "uuid6>=2024.7.10",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "streamlit>=1.39.0",
 ]

@@ -55,7 +55,7 @@ class FileInfo:
         return Path(MOUNT_PATH) / self.path
 
     async def read(self) -> str:
-        return (await self.manager.sandbox.read_file(self.path)).expandtabs()
+        return (await self.manager.sandbox.read_file(self.path)).decode().expandtabs()
 
     async def write(self, content: str):
         self.manager.session.file_versions[self.path].append(await self.read())
