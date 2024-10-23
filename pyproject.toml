@@ -16,6 +16,10 @@ dependencies = [
     "wand>=0.6.13",
 ]
 
+[project.urls]
+Homepage = "https://github.com/yasyf/anthropic-tool-use-modal"
+Repository = "https://github.com/yasyf/anthropic-tool-use-modal.git"
+
 [tool.uv]
 dev-dependencies = [
     "streamlit>=1.39.0",
