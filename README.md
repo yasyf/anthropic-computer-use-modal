@@ -16,37 +16,6 @@ This library provides an out-of-the-box implementation that can be deployed into
 - Pre-warming of the sandbox for faster startup times
 - Tools for the LLM to work faster, such as `apt-fast`
 
-## Demo
-
-
-You can clone this repo and run two demos locally.
-
-### CLI Demo
-
-This demo will deploy an ephemeral Modal app, and ask the LLM to browse the web to fetch the weather in San Francisco.
-Screenshots will be shown in your terminal so you can follow along!
-
-```bash
-git clone https://github.com/yasyf/anthropic-tool-use-modal
-cd anthropic-tool-use-modal
-uv sync
-modal run computer_use_modal.demo
-```
-
-### Streamlit Demo
-
-This demo deploys the app persistently to its own namespace in your Modal account, then starts a Streamlit app that can interact with it.
-
-```bash
-git clone https://github.com/yasyf/anthropic-tool-use-modal
-cd anthropic-tool-use-modal
-uv sync --dev
-modal deploy computer_use_modal
-python -m streamlit run computer_use_modal/streamlit.py
-```
-
-![Streamlit Demo](demo.png)
-
 ## Installation
 
 You can install this library without cloning the repo by running:
@@ -93,6 +62,37 @@ manager = Cls.lookup("anthropic-computer-use-modal", "SandboxManager")
 urls = manager.debug_urls.remote()
 print(urls["vnc"])
 ```
+
+
+## Demo
+
+You can clone this repo and run two demos locally.
+
+### CLI Demo
+
+This demo will deploy an ephemeral Modal app, and ask the LLM to browse the web to fetch the weather in San Francisco.
+Screenshots will be shown in your terminal so you can follow along!
+
+```bash
+git clone https://github.com/yasyf/anthropic-tool-use-modal
+cd anthropic-tool-use-modal
+uv sync
+modal run computer_use_modal.demo
+```
+
+### Streamlit Demo
+
+This demo deploys the app persistently to its own namespace in your Modal account, then starts a Streamlit app that can interact with it.
+
+```bash
+git clone https://github.com/yasyf/anthropic-tool-use-modal
+cd anthropic-tool-use-modal
+uv sync --dev
+modal deploy computer_use_modal
+python -m streamlit run computer_use_modal/streamlit.py
+```
+
+![Streamlit Demo](demo.png)
 
 ## Thanks
 
