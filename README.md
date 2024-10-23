@@ -40,6 +40,7 @@ response = server.messages_create.remote.aio(
     request_id=uuid4().hex,
     user_messages=[{"role": "user", "content": "What is the weather in San Francisco?"}],
 )
+print(response)
 ```
 
 ```python
@@ -63,6 +64,9 @@ urls = manager.debug_urls.remote()
 print(urls["vnc"])
 ```
 
+```python
+"https://x2xzanmu4yg.r9.modal.host"
+```
 
 ## Demo
 
