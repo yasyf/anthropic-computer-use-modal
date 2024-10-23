@@ -44,7 +44,7 @@ sandbox_image = (
         f"echo '{FIREFOX_PIN}' | base64 --decode | tee /etc/apt/preferences.d/mozilla-firefox",
         "apt-get update -y && apt-get install -y firefox-esr apt-fast",
         "apt remove -y xdg-desktop-portal",
-        "timeout 5 sudo firefox-esr -new-window",
     )
+    .run_commands("timeout 30 sudo firefox-esr -headless -new-window || true")
 )
 secrets = Secret.from_local_environ(["ANTHROPIC_API_KEY"])
