@@ -2,7 +2,7 @@
 
 Anthropic's recent release of [Computer Use](https://anthropic.com/news/3-5-models-and-computer-use) is fantastic, but spinning up random Docker images didn't fit into our production workflow. Luckily, we use [Modal](https://modal.com) and they have all the primitives we need to implement the Computer Use API.
 
-If you're curious about why this library exists, check out [this blog post](https://musings.yasyf.com/improving-claude-computer-use/).
+If you're curious about why this library exists, check out [this blog post](https://musings.yasyf.com/improving-claude-computer-use/). This repo has a reimplementation of the Computer Use Tools from ~scratch, with a focus on using distributed primitives and state management.
 
 This library provides an out-of-the-box implementation that can be deployed into your Modal environment. Everything runs in a Sandbox, with tool calls being translated into Modal API calls. It may or may not spectacularly explode. It's also quite slow at the moment. Caveat emptor!
 
