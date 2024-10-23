@@ -9,5 +9,6 @@ dependencies = [
     "anthropic>=0.37.1",
     "modal>=0.64.211",
     "pydantic>=2.9.2",
+    "rich>=13.9.3",
     "uuid6>=2024.7.10",
 ]

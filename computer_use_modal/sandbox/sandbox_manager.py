@@ -1,22 +1,19 @@
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import modal
 from modal import NetworkFileSystem, Sandbox
 from modal.container_process import ContainerProcess
 
-from computer_use_modal.deploy import MOUNT_PATH, app, image, sandbox_image
+from computer_use_modal.modal import MOUNT_PATH, app, image, sandbox_image
 from computer_use_modal.sandbox.bash_manager import BashSession, BashSessionManager
-
-if TYPE_CHECKING:
-    from computer_use_modal.tools.base import ToolResult
+from computer_use_modal.tools.base import ToolResult
 
 
-@app.cls(image=image, concurrency_limit=1, allow_concurrent_inputs=10, timeout=60 * 20)
+@app.cls(image=image, concurrency_limit=1, allow_concurrent_inputs=10, timeout=60 * 30)
 class SandboxManager:
     request_id: str = modal.parameter()
-    auto_cleanup: bool = modal.parameter(default=True)
+    auto_cleanup: int = modal.parameter(default=0)
 
     @modal.enter()
     async def create_sandbox(self):
@@ -32,7 +29,7 @@ class SandboxManager:
                 "./entrypoint.sh",
                 image=sandbox_image,
                 network_file_systems={MOUNT_PATH: self.nfs},
-                timeout=60 * 20,
+                timeout=60 * 60,
                 encrypted_ports=[8080],
             )
 
@@ -48,7 +45,7 @@ class SandboxManager:
         return (await self.sandbox.tunnels.aio())[8080].url
 
     @modal.method()
-    async def run_command(self, *command: str) -> "ToolResult":
+    async def run_command(self, *command: str) -> ToolResult:
         proc: ContainerProcess = await self.sandbox.exec.aio(*command)
         await proc.wait.aio()
         return ToolResult(
@@ -66,9 +63,7 @@ class SandboxManager:
         return buff.getvalue().decode()
 
     @modal.method()
-    async def take_screenshot(
-        self, display: int, size: tuple[int, int]
-    ) -> "ToolResult":
+    async def take_screenshot(self, display: int, size: tuple[int, int]) -> ToolResult:
         from uuid6 import uuid7
 
         path = Path(MOUNT_PATH) / f"{uuid7().hex}.png"

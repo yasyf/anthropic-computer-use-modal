@@ -212,6 +212,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "modal" },
     { name = "pydantic" },
+    { name = "rich" },
     { name = "uuid6" },
 ]
 
@@ -221,6 +222,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.37.1" },
     { name = "modal", specifier = ">=0.64.211" },
     { name = "pydantic", specifier = ">=2.9.2" },
+    { name = "rich", specifier = ">=13.9.3" },
     { name = "uuid6", specifier = ">=2024.7.10" },
 ]
 

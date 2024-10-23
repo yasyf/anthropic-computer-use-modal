@@ -2,11 +2,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import singledispatchmethod
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
+import modal
 from modal.volume import FileEntry, FileEntryType
 
-from computer_use_modal.deploy import MOUNT_PATH
+from computer_use_modal.modal import MOUNT_PATH
 from computer_use_modal.tools.base import ToolError, ToolResult
 from computer_use_modal.tools.edit.types import (
     CreateRequest,
@@ -21,12 +22,17 @@ from computer_use_modal.vnd.anthropic.tools.edit import make_output
 if TYPE_CHECKING:
     from computer_use_modal.sandbox.sandbox_manager import SandboxManager
 
+SESSIONS = modal.Dict.from_name("edit-sessions", create_if_missing=True)
 
 @dataclass(frozen=True, kw_only=True)
 class EditSession:
     file_versions: dict[Path, list[str]] = field(
         default_factory=lambda: defaultdict(list)
     )
+
+    @classmethod
+    async def from_request_id(cls, request_id: str) -> Self:
+        return await SESSIONS.get.aio(request_id, cls())
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -64,7 +70,7 @@ class EditSessionManager:
     SNIPPET_LINES: int = 4
 
     sandbox: "SandboxManager"
-    session: EditSession = field(default_factory=EditSession)
+    session: EditSession
 
     async def _validate_request(self, request: TRequest):
         info = FileInfo(
